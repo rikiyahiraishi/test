@@ -1,0 +1,232 @@
+<!-- sales/templates/sales/order_list.html -->
+{% extends 'sales/base.html' %}
+
+{% block content %}
+<style>
+    .content button:first-of-type {
+        margin-right: 10px;
+    }
+
+    #search-button {
+        position: relative;
+        top: -1px;
+        left: 20px;
+    }
+</style>
+
+<br>
+<br>
+<h3 class="my-12 ml-5">受注管理</h3>
+<hr>
+
+<!-- メッセージ表示 -->
+{% include 'sales/components/display_message.html' %}
+<br>
+
+<h5 class="my-0 ml-5 mb-4">顧客名の選択</h5>
+<!-- 顧客名のドロップダウン作成 -->
+<form action="{% url 'sales:order_customer_set' %}" class="form-inline mb-5" method="GET">
+    <div class="input-group mb-4">
+        <div class="col-auto">
+            {{ order_search_form.customer_name }}
+        </div>
+        <div class="col-auto">
+            <button id="search-button" type="submit" class="btn btn-primary btn-lg my-sm-0">
+                決定
+            </button>
+        </div>
+    </div>
+</form>
+<hr>
+<br>
+
+<div class="content">
+    <!-- 追加 モーダルの呼び出し新規登録ボタン -->
+    <button type="button" class="btn btn-primary btn-lg new-modal-button" id="new_button" data-mdb-toggle="modal"
+        data-mdb-target="#OrderCreateModal" data-customer_name="{{ order_search_form.customer_name.value }}">
+        ＋ 新規受入
+    </button>
+    <!-- 追加 新規登録モーダル -->
+    {% include "sales/components/order_create_modal.html" %}
+    <br>
+</div>
+<br>
+<br>
+
+<!-- 簡易表示、詳細表示切り替えトグル -->
+<div class="form-check form-switch" id="toggle">
+    <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckDefault" />
+    <label class="form-check-label" for="flexSwitchCheckDefault">詳細表示</label>
+</div>
+
+{% load humanize %}
+<!-- 商品名リストを表示 -->
+<div class="col-12 ml-5" style="overflow-x:scroll; white-space: nowrap;">
+    <table class="table" style="text-align: center;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>受注日時</th>
+                <th>顧客名</th>
+                <th>商品名</th>
+                <th>数量 / 基本単位</th>
+                <th>金額（円）</th>
+                <th>納品日</th>
+                <th>納品</th>
+                <th>請求</th>
+                <th>編集</th>
+                <th>削除</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in object_list %}
+            <tr>
+                <td>{{ i.pk }}</td>
+                <td>{{ i.order_datetime|date:"y/n/j H:i" }}</td>
+                <td>{{ i.customer_name }}</td>
+                <td>{{ i.product_name }}</td>
+                <td>{{ i.volume|floatformat }} / {{ i.unit }}</td>
+                <td>{{ i.total_price|intcomma }}</td>
+                {% if i.delivery_date %}
+                <td>{{ i.delivery_date|date:"y/n/j" }}</td>
+                {% else %}
+                <td>指定なし</td>
+                {% endif %}
+                {% if i.delivery_status %}
+                <td>済</td>
+                {% else %}
+                <td>未</td>
+                {% endif %}
+                {% if i.invoice_status %}
+                <td>済</td>
+                {% else %}
+                <td>未</td>
+                {% endif %}
+                <!-- 更新モーダルを呼び出すボタン-->
+                <td>
+                    <button type="button" class="btn btn-rounded btn-md btn-info update-modal-button"
+                        data-mdb-toggle="modal" data-mdb-target="#OrderUpdateModal"
+                        data-updateurl="{% url 'sales:order_update' i.pk %}"
+                        data-datetime="{{ i.order_datetime|date:'Y-n-j H:i' }}"
+                        data-customer_name="{{ i.customer_name }}" data-product_name="{{ i.product_name }}"
+                        data-total_price="{{ i.total_price }}" data-volume="{{ i.volume|floatformat }}"
+                        data-delivery_status="{{ i.delivery_status }}"
+                        data-delivery_date="{{ i.delivery_date|date:'Y-n-j' }}"
+                        data-invoice_status="{{ i.invoice_status }}" data-delivery_number="{{ i.delivery_number }}"
+                        data-invoice_number="{{ i.invoice_number }}" data-unit_price="{{ i.unit_price }}"
+                        data-unit="{{ i.unit }}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <!-- 商品情報の更新モーダル -->
+                    {% include 'sales/components/order_update_modal.html' %}
+
+                </td>
+                <!-- 削除モーダルを呼び出すボタン-->
+                <td>
+                    <button type="button" class="btn btn-rounded btn-md btn-danger delete-modal-button"
+                        data-mdb-toggle="modal" data-mdb-target="#OrderDeleteModal"
+                        data-deleteurl="{% url 'sales:order_delete' i.pk %}" data-customer_name="{{ i.customer_name }}"
+                        data-product_name="{{ i.product_name }}" data-datetime="{{ i.order_datetime|date:'Y/n/j H:i' }}"
+                        data-volume="{{ i.volume|floatformat }}" data-total_price="{{ i.total_price|intcomma }}">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<br>
+<br>
+<!-- ページネーション機能 -->
+{% include 'sales/components/pagination.html' %}
+
+<!-- 商品情報の削除モーダル -->
+{% include 'sales/components/order_delete_modal.html' %}
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/base/jquery-ui.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+<script type="text/javascript">
+    /// customer_nameの検索フォームの有効化・無効化処理
+    function connecttext(text_id, ischecked) {
+        if (ischecked == true) {
+            // チェックが入っていたら有効化
+            document.getElementById(text_id).disabled = false;
+        }
+        else {
+            // チェックが入っていなかったら無効化
+            document.getElementById(text_id).disabled = true;
+        }
+    }
+
+    /// 顧客名がセットされていれば、新規登録ボタンを有効化
+    window.onload = function new_check() {
+        const text_id = 'customer_name';
+        const id2 = 'new_button'
+        customer = document.getElementById(text_id).value;
+        if (customer == '顧客名を選択してください') {
+            document.getElementById(id2).disabled = true;
+        }
+        else {
+            document.getElementById(id2).disabled = false;
+        }
+    }
+
+    // 新規作成フォーム関連
+    const newModalButtons = document.getElementsByClassName('new-modal-button');
+    
+    for (const button of newModalButtons) {
+        button.addEventListener('click', () => {
+            document.getElementById('new_customer_name').value = `${button.dataset.customer_name}`;
+            console.log(document.getElementById('new_customer_name').value)
+        });
+    }
+
+    // 削除フォーム関連
+    const deleteModalButtons = document.getElementsByClassName('delete-modal-button');
+    const deleteForm = document.getElementById('delete-form');
+    const deleteDatetime = document.getElementById('delete-datetime')
+    const deleteCustomerName = document.getElementById('delete-customer_name')
+    const deleteProductName = document.getElementById('delete-product_name')
+    const deleteVolume = document.getElementById('delete-volume')
+    const deleteTotalPrice = document.getElementById('delete-total_price')
+
+    for (const button of deleteModalButtons) {
+        button.addEventListener('click', () => {
+            deleteForm.action = button.dataset.deleteurl;
+            deleteDatetime.textContent = `受注日時 : ${button.dataset.datetime}`;
+            deleteCustomerName.textContent = `顧客名 : ${button.dataset.customer_name}`;
+            deleteProductName.textContent = `商品名 : ${button.dataset.product_name}`;
+            deleteVolume.textContent = `数量 : ${button.dataset.volume}`;
+            deleteTotalPrice.textContent = `金額 : ${button.dataset.total_price}円`;
+        });
+    }
+
+
+    // 更新フォーム関連
+    const updateModalButtons = document.getElementsByClassName('update-modal-button');
+    const updateForm = document.getElementById('update-form');
+    const updateOrderDatetime = document.getElementById('update-datetime');
+
+    for (const button of updateModalButtons) {
+        button.addEventListener('click', () => {
+            updateForm.action = button.dataset.updateurl;
+            document.getElementById('up_customer_name').value = `${button.dataset.customer_name}`;
+            document.getElementById('up_product_name').value = `${button.dataset.product_name}`;
+            document.getElementById('up_volume').value = `${button.dataset.volume}`;
+            document.getElementById('up_total_price').value = `${button.dataset.total_price}`;
+            updateOrderDatetime.textContent = `${button.dataset.datetime}`;
+            document.getElementById('up_delivery_date').value = `${button.dataset.delivery_date}`;
+            document.getElementById('up_delivery_status').value = `${button.dataset.delivery_status}`;
+            document.getElementById('up_invoice_status').value = `${button.dataset.invoice_status}`;
+            document.getElementById('up_delivery_number').value = `${button.dataset.delivery_number}`;
+            document.getElementById('up_invoice_number').value = `${button.dataset.invoice_number}`;
+            document.getElementById('up_unit_price').value = `${button.dataset.unit_price}`;
+            document.getElementById('up_unit').value = `${button.dataset.unit}`;
+        });
+    }
+</script>
+
+{% endblock %}

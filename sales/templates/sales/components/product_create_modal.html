@@ -1,0 +1,40 @@
+<!-- sales/templates/sales/components/product_create_modal.html -->
+<div class="modal fade" id="ProductCreateModal" tabindex="-1" aria-labelledby="ProductCreateModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form class="mt-5" action="{% url 'sales:product_create' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ProductCreateModalLabel">新規登録</h5>
+                    <button type="button" class="btn-close" data-mdb-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-10">
+                            <label class="form-label" for="name">商品名（必須）
+                                {{ product_create_form.name }}
+                            </label>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="unit_price">単価（必須）（円）
+                                {{ product_create_form.unit_price }}
+                            </label>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="unit">単位（必須）
+                                {{ product_create_form.unit }}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" type="submit" name="button">登録</button>
+                    <button type="button" class="btn btn-secondary" data-mdb-dismiss="modal">
+                        キャンセル
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

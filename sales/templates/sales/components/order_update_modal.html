@@ -1,0 +1,86 @@
+<!-- sales/templates/sales/components/order_update_modal.html -->
+<div class="modal fade" id="OrderUpdateModal" tabindex="-1" aria-labelledby="OrderUpdateModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form class="mt-5" action="{% url 'sales:order_update' i.pk %}" id="update-form" method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="OrderUpdateModalLabel">受注情報更新</h5>
+                    <button type="button" class="btn-close" data-mdb-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <br>
+                <div class="modal-body" style="text-align: left;">
+                    <div class="row">
+                        <div class="col-md-10">
+                            <label class="form-label" for="order_datetime">受注日時</label>
+                            <p id="update-datetime"></p>
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="customer_name">顧客名</label>
+                            {{ order_update_form.customer_name }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="product_name">商品名</label>
+                            {{ order_update_form.product_name }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="unit_price">単価（円）</label>
+                            {{ order_update_form.unit_price }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="unit">基本単位</label>
+                            {{ order_update_form.unit }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="volume">数量</label>
+                            {{ order_update_form.volume }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="total_price">金額（円）※更新完了後に自動更新されます。</label>
+                            {{ order_update_form.total_price }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="delivery_date">納品日</label>
+                            {{ order_update_form.delivery_date }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="delivery_status">納品状態</label>
+                            {{ order_update_form.delivery_status }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="delivery_number">納品番号</label>
+                            {{ order_update_form.delivery_number }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="invoice_status">請求状態</label>
+                            {{ order_update_form.invoice_status }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="invoice_number">請求番号</label>
+                            {{ order_update_form.invoice_number }}
+                            <br>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" type="submit" name="button">更新</button>
+                    <button type="button" class="btn btn-secondary" data-mdb-dismiss="modal">
+                        キャンセル
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

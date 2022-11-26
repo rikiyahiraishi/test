@@ -1,0 +1,52 @@
+<!-- sales/templates/sales/components/customer_update_modal.html -->
+<div class="modal fade" id="CustomerUpdateModal" tabindex="-1" aria-labelledby="CustomerUpdateModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form class="mt-5" action="{% url 'sales:customer_update' i.pk %}" id="update-form" method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="CustomerUpdateModalLabel">顧客情報更新</h5>
+                    <button type="button" class="btn-close" data-mdb-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <br>
+                <div class="modal-body" style="text-align: left;">
+                    <div class="row">
+                        <div class="col-md-10">
+                            <label class="form-label" for="customer_name">顧客名（必須）</label>
+                            {{ customer_update_form.customer_name }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="post_code">郵便番号（必須）</label>
+                            {{ customer_update_form.post_code }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="address">住所（必須）</label>
+                            {{ customer_update_form.address }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="phone_number">電話番号</label>
+                            {{ customer_update_form.phone_number }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="manager">担当者</label>
+                            {{ customer_update_form.manager }}
+                            <br>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" type="submit" name="button">更新</button>
+                    <button type="button" class="btn btn-secondary" data-mdb-dismiss="modal">
+                        キャンセル
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>

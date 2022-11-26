@@ -1,0 +1,333 @@
+<!-- sales/templates/sales/invoice_sllip.html -->
+{% extends 'sales/base.html' %}
+
+{% block content %}
+<style>
+    #product_name {
+        position: relative;
+        top: -3px;
+        left: 8px;
+    }
+
+    #product_check {
+        position: relative;
+        top: 5px;
+        left: 0px;
+    }
+
+    #delivery_status {
+        position: relative;
+        top: -5px;
+        left: -8px;
+    }
+
+    #invoice_status {
+        position: relative;
+        top: -5px;
+        left: -8px;
+    }
+
+    #invoice_checks {
+        position: relative;
+        top: 10px;
+        left: 0px;
+    }
+
+    #delivery_date_S {
+        position: relative;
+        top: 5px;
+        left: 32px;
+    }
+
+    #haihun {
+        position: relative;
+        top: 10px;
+        left: 55px;
+    }
+
+    #delivery_date_E {
+        position: relative;
+        top: 5px;
+        left: 80px;
+    }
+
+    #condition_setbutton {
+        position: relative;
+        top: 5px;
+        left: 80px;
+    }
+    #invoice_number {
+        position: relative;
+        top: -2px;
+        left: 5px;
+    }
+
+    #invoice_slip {
+        position: relative;
+        top: -11px;
+        left: 40px;
+    }
+</style>
+
+<br>
+<br>
+<h3 class="my-12 ml-5">請求管理</h3>
+<hr>
+
+<!-- メッセージ表示 -->
+{% include 'sales/components/display_message.html' %}
+<br>
+
+<!-- 検索フィルタ -->
+<form action="{% url 'sales:invoice_search' %}" class="row gy-2 gx-3 align-items-center" method="GET">
+    <!-- {% csrf_token %} -->
+    <h5 class="my-0 ml-5 mb-3" id="">条件設定</h5>
+    <!-- 顧客名のドロップダウン作成 -->
+    <div class="input-group mb-4">
+        <div class="col-auto">
+            {{ order_search_form.customer_name }}
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <!-- 納品状態のチェックボックス作成 -->
+        <div class="col-auto mt-1" style="display:inline-flex">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="delivery_status_check" value="" name=""
+                    onclick="connecttext('delivery_status',this.checked);" />
+                <label class="form-check-label" for="delivery_status"> 納品状態 </label>
+            </div>
+        </div>
+        <!-- 納品状態のドロップダウン作成 -->
+        <div class="col-auto mt-1">
+            {{ order_search_form.delivery_status }}
+        </div>
+        <!-- 請求状態のチェックボックス作成 -->
+        <div class="col-auto mt-1" style="display:inline-flex">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="invoice_status_check" value="" name=""
+                    onclick="connecttext('invoice_status',this.checked);" />
+                <label class="form-check-label" for="invoice_status"> 請求状態 </label>
+            </div>
+        </div>
+        <!-- 請求状態のドロップダウン作成 -->
+        <div class="col-auto mt-1">
+            {{ order_search_form.invoice_status }}
+        </div>
+    </div>
+    <div class="row mt-4">
+        <!-- 商品名のチェックボックス作成 -->
+        <div class="col-auto">
+            <div class="form-check" id="product_check">
+                <input class="form-check-input" type="checkbox" value="" name=""
+                    onclick="connecttext('product_name',this.checked);" />
+                <label class="form-check-label" for="product_name"> 商品名 </label>
+            </div>
+        </div>
+        <!-- 商品名のドロップダウン作成 -->
+        <div class="col-auto mt-1">
+            {{ order_search_form.product_name }}
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <!-- 納品日のチェックボックス作成 -->
+        <div class="col-auto" style="display:inline-flex">
+            <div class="col-auto form-check" id="invoice_checks">
+                <input class="form-check-input" type="checkbox" id="invoice_check" value="" name="invoice_date"
+                    onclick="connecttext('delivery_date_S',this.checked);connecttext('delivery_date_E',this.checked);" />
+                <label class="form-check-label" for="invoice_date"> 納品日 </label>
+            </div>
+            <div class="col-auto">
+                {{ order_search_form.delivery_date_S }}
+            </div>
+            <div class="col-auto" id="haihun">
+                <p>ー</p>
+            </div>
+            <div class="col-auto">
+                {{ order_search_form.delivery_date_E }}
+            </div>
+        </div>
+        <div class="col-auto" id="condition_setbutton">
+            <button id="search-button" type="submit" class="btn btn-primary my-sm-0">
+                設定
+            </button>
+        </div>
+    </div>
+</form>
+<br>
+<hr>
+<br>
+
+{% load humanize %}
+<!-- 商品名リストを表示 -->
+<form action="{% url 'sales:create_invoice_slip' %}" method="post" novalidate>
+    {% csrf_token %}
+    <!-- 請求番号入力フォーム -->
+    <div class="col-auto" style="display:inline-flex">
+        <div class="col-auto" id="invoice_number">
+            {{ order_search_form.invoice_number }}
+        </div>
+        <br>
+        <!-- 請求書発行ボタン -->
+        <button class="btn btn-primary btn-lg" id="invoice_slip" type="submit" value="click" onclick='return confirm("請求書を発行しますか？");'>
+            <input type="hidden" name="invoice_start" value="{{ delivery_date_S }}">
+            <input type="hidden" name="invoice_end" value="{{ delivery_date_E }}">
+            請求書発行
+        </button>
+    </div>
+    <br>
+    <br>
+    <div class="col-12 ml-5" style="overflow-x:scroll; white-space: nowrap; overflow-y: scroll; height: 650px">
+
+        <table class="table" id="tbl" style="text-align: center;">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>ID</th>
+                    <th>受注日時</th>
+                    <th>商品名</th>
+                    <th>数量</th>
+                    <th>単価（円） / 基本単位</th>
+                    <th>金額（円）</th>
+                    <th>納品日</th>
+                    <th>納品</th>
+                    <th>請求</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for i in object_list %}
+                <tr>
+                    <td>
+                        <input type="checkbox" class="form-check-input" id="invoice_check" name="invoice_{{ i.pk }}"
+                            value='{{ i.pk }}/{{ i.customer_name }}'>
+                    </td>
+                    <td>{{ i.pk }}</td>
+                    <td>{{ i.order_datetime|date:"y/n/j" }}</td>
+                    <td>{{ i.product_name }}</td>
+                    <td>{{ i.volume|floatformat }}</td>
+                    <td>{{ i.unit_price|intcomma }} / {{ i.unit }}</td>
+                    <td>{{ i.total_price|intcomma }}</td>
+                    {% if i.delivery_date %}
+                    <td>{{ i.delivery_date|date:"y/n/j" }}</td>
+                    {% else %}
+                    <td>指定なし</td>
+                    {% endif %}
+
+                    {% if i.delivery_status %}
+                    <td>済</td>
+                    {% else %}
+                    <td>未</td>
+                    {% endif %}
+
+                    {% if i.invoice_status %}
+                    <td>済</td>
+                    {% else %}
+                    <td>未</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <br>
+    <!-- ページネーション機能 -->
+    {% include 'sales/components/pagination.html' %}
+
+    <!-- 商品情報の削除モーダル -->
+    {% include 'sales/components/order_delete_modal.html' %}
+
+</form>
+<br>
+<br>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/base/jquery-ui.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+<script type="text/javascript">
+    /// customer_nameの検索フォームの有効化・無効化処理
+    function connecttext(text_id, ischecked) {
+        if (ischecked == true) {
+            // チェックが入っていたら有効化
+            document.getElementById(text_id).disabled = false;
+        }
+        else {
+            // チェックが入っていなかったら無効化
+            document.getElementById(text_id).disabled = true;
+        }
+    }
+
+    /// ページ読み込み時の処理
+    window.onload = function new_check() {
+        /// 顧客名がセットされていれば、新規登録ボタンを有効化
+        const text_id = 'customer_name';
+        const id2 = 'invoice_slip'
+        customer = document.getElementById(text_id).value;
+        if (customer == '顧客名を選択してください') {
+            document.getElementById(id2).disabled = true;
+        }
+        else {
+            document.getElementById(id2).disabled = false;
+        }
+
+        /// 納品状態が選択されていれば、チェックボタンを有効化
+        const text_id7 = 'delivery_status';
+        const id7 = 'delivery_status_check'
+        delivery = document.getElementById(text_id7).value;
+        console.log(delivery)
+        if (delivery == '納品状態を選択してください') {
+            document.getElementById(id7).checked = false;
+            document.getElementById(text_id7).disabled = true;
+        }
+        else {
+            document.getElementById(id7).checked = true;
+            document.getElementById(text_id7).disabled = false;
+        }
+
+        /// 請求状態が選択されていれば、チェックボタンを有効化
+        const text_id6 = 'invoice_status';
+        const id6 = 'invoice_status_check'
+        invoice = document.getElementById(text_id6).value;
+        console.log(invoice)
+        if (invoice == '請求状態を選択してください') {
+            document.getElementById(id6).checked = false;
+            document.getElementById(text_id6).disabled = true;
+        }
+        else {
+            document.getElementById(id6).checked = true;
+            document.getElementById(text_id6).disabled = false;
+        }
+
+        /// 商品名が選択されていれば、チェックボタンを有効化
+        const text_id3 = 'product_name';
+        const id3 = 'product_check'
+        product = document.getElementById(text_id3).value;
+        if (product == '商品名を選択してください') {
+            document.getElementById(id3).checked = false;
+            document.getElementById(text_id3).disabled = true;
+        }
+        else {
+            document.getElementById(id3).checked = true;
+            document.getElementById(text_id3).disabled = false;
+        }
+
+        /// 納品期間が選択されていれば、チェックボタンを有効化
+        const text_id4 = 'delivery_date_S';
+        const text_id5 = 'delivery_date_E';
+        const id4 = 'invoice_check'
+        delivery_start = document.getElementById(text_id4).value;
+        delivery_end = document.getElementById(text_id5).value;
+        if (delivery_start == '' & delivery_end == '') {
+            document.getElementById(id4).checked = false;
+            document.getElementById(text_id4).disabled = true;
+            document.getElementById(text_id5).disabled = true;
+        }
+        else {
+            document.getElementById(id4).checked = true;
+            document.getElementById(text_id4).disabled = false;
+            document.getElementById(text_id5).disabled = false;
+        }
+    }
+</script>
+
+{% endblock %}

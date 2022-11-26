@@ -1,0 +1,175 @@
+<!-- sales/templates/sales/product_list.html -->
+{% extends 'sales/base.html' %}
+
+{% block content %}
+<style>
+    .content button:first-of-type {
+        margin-right: 10px;
+    }
+</style>
+
+<br>
+<br>
+<h3 class="my-12 ml-5">商品管理</h3>
+<hr>
+<br>
+
+<!-- メッセージ表示 -->
+{% include 'sales/components/display_message.html' %}
+
+<div class="content">
+    <div style="display:inline-flex">
+        <!-- 追加 モーダルの呼び出し新規登録ボタン -->
+        <button type="button" class="btn btn-primary btn-lg" data-mdb-toggle="modal"
+            data-mdb-target="#ProductCreateModal">
+            新規作成
+        </button>
+        <!-- 追加 新規登録モーダル -->
+        {% include "sales/components/product_create_modal.html" %}
+
+        <!-- ダウンロードボタン -->
+
+        <a class="nav-link dropdown-toggle btn btn-primary btn-lg" href="#" id="navbarDropdown" role="button"
+            data-mdb-toggle="dropdown" aria-expanded="false">
+            <i class="fas fa-download"></i>
+        </a>
+        <!-- Dropdown menu -->
+        <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+            <li>
+                <form method="GET" action="{% url 'sales:product_download' %}" style="display: inline">
+                    <button type="submit" name="msg" value=.test class="dropdown-item">
+                        <input type="hidden" name="button_type" value="all">
+                        全件ダウンロード
+                    </button>
+                </form>
+            </li>
+            <li>
+                <form method="GET" action="{% url 'sales:product_download' %}" style="display: inline">
+                    <button type="submit" name="msg" value=.test class="dropdown-item">
+                        <input type="hidden" name="button_type" value="this_table">
+                        {% for i in object_list %}
+                        <input type="hidden" name="name_{{ i.id }}" value="{{i.name}}">
+                        <input type="hidden" name="unit_price_{{ i.id }}" value="{{i.unit_price}}">
+                        <input type="hidden" name="unit_{{ i.id }}" value="{{i.unit}}">
+                        {% endfor %}
+                        表示テーブルダウンロード
+                    </button>
+                </form>
+            </li>
+        </ul>
+    </div>
+
+    <br>
+    <br>
+    <!-- 検索フォームを表示 -->
+    <form action="{% url 'sales:product_search' %}" class="form-inline" method="GET">
+        <div class="input-group">
+            <input class="form-control mr-sm-2" type="search" placeholder="検索" aria-label="ProductSearch" ,
+                name="freeword">
+
+            <button id="search-button" type="submit" class="btn btn-primary my-2 my-sm-0">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+    </form>
+
+</div>
+<br>
+<br>
+
+{% load humanize %}
+<!-- 商品名リストを表示 -->
+<div class="col-12 ml-5" style="overflow-x:scroll; white-space: nowrap; overflow-y: scroll; height: 650px;">
+    <table class="table" style="text-align: center;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>商品名</th>
+                <th>単価（円）</th>
+                <th>基本単位</th>
+                <th>編集</th>
+                <th>削除</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in object_list %}
+            <tr>
+                <td>{{ i.id }}</td>
+                <td>{{ i.name }}</td>
+                <td>{{ i.unit_price|intcomma }}</td>
+                <td>{{ i.unit }}</td>
+                <!-- 更新モーダルを呼び出すボタン-->
+                <td>
+                    <button type="button" class="btn btn-rounded btn-md btn-info update-modal-button"
+                        data-mdb-toggle="modal" data-mdb-target="#ProductUpdateModal"
+                        data-updateurl="{% url 'sales:product_update' i.pk %}" data-name="{{ i.name }}"
+                        data-unit_price="{{ i.unit_price }}" data-unit="{{ i.unit }}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <!-- 商品情報の更新モーダル -->
+                    {% include 'sales/components/product_update_modal.html' %}
+
+                </td>
+                <!-- 削除モーダルを呼び出すボタン-->
+                <td>
+                    <button type="button" class="btn btn-rounded btn-md btn-danger delete-modal-button"
+                        data-mdb-toggle="modal" data-mdb-target="#ProductDeleteModal"
+                        data-deleteurl="{% url 'sales:product_delete' i.pk %}" data-name="{{ i.name }}"
+                        data-unit_price="{{ i.unit_price }}" data-unit="{{ i.unit }}">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ページネーション機能 -->
+{% include 'sales/components/pagination.html' %}
+{% include 'sales/components/pagination_generic.html' %}
+
+<!-- 商品情報の削除モーダル -->
+{% include 'sales/components/product_delete_modal.html' %}
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/base/jquery-ui.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+<script type="text/javascript">
+    // 削除フォーム関連
+    const deleteModalButtons = document.getElementsByClassName('delete-modal-button');
+    const deleteForm = document.getElementById('delete-form');
+    const deleteName = document.getElementById('delete-name')
+    const deleteUnitPrice = document.getElementById('delete-unit_price')
+    const deleteUnit = document.getElementById('delete-unit')
+
+    for (const button of deleteModalButtons) {
+        button.addEventListener('click', () => {
+            deleteForm.action = button.dataset.deleteurl;
+            deleteName.textContent = `商品名 : ${button.dataset.name}`;
+            deleteUnitPrice.textContent = `単価 : ${button.dataset.unit_price}円`;
+            deleteUnit.textContent = `単位 : ${button.dataset.unit}`;
+        });
+    }
+
+
+    // 更新フォーム関連
+    const updateModalButtons = document.getElementsByClassName('update-modal-button');
+    const updateForm = document.getElementById('update-form');
+    //const updateName = document.getElementById('update-name');
+    //const updateUnitPrice = document.getElementById('update-unit_price');
+    //const updateUnit = document.getElementById('update-unit');
+    //console.log(updateName);
+
+    for (const button of updateModalButtons) {
+        button.addEventListener('click', () => {
+            updateForm.action = button.dataset.updateurl;
+            document.getElementById('up_name').value = `${button.dataset.name}`;
+            document.getElementById('up_unit_price').value = `${button.dataset.unit_price}`;
+            document.getElementById('up_unit').value = `${button.dataset.unit}`;
+        });
+    }
+</script>
+
+{% endblock %}

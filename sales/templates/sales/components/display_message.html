@@ -1,0 +1,8 @@
+<!-- sales/templates/sales/display_message.html -->
+{% if messages %}
+{% for message in messages %}
+<div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %} alert-dismissible" role="alert">
+    {{message}}
+</div>
+{% endfor %}
+{% endif %}

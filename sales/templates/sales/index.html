@@ -1,0 +1,189 @@
+<!-- sales/templates/sales/index.html -->
+{% extends 'sales/base.html' %}
+{% load humanize %}
+
+
+{% block content %}
+<br>
+<br>
+<h3 class="my-12 ml-5">売上管理</h3>
+<hr>
+<br>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header text-white bg-primary text-center ls-widest font-weight-bold">
+                年間総売上
+            </div>
+            <div class="card-body">
+                <h4 class="card-title text-center text-primary" style="font-size: 35px;">
+                    ￥{{ total_sales|intcomma }}
+                </h4>
+                <h6 class="card-title text-center text-secondary">
+                    {% for key, value in customer_sales_dict.items %}
+                    <p style="line-height: 8px;">{{ key }} : ￥{{ value|intcomma }}</p>
+                    {% endfor %}
+                </h6>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header text-white bg-primary text-center ls-widest font-weight-bold">
+                月間売上
+            </div>
+            <div class="card-body">
+                <h4 class="card-title text-center text-primary" style="font-size: 35px;">
+                    ￥{{ month_sales|intcomma }}
+                </h4>
+                <h6 class="card-title text-center text-secondary">
+                    {% for key, value in customer_monthsales_dict.items %}
+                    <p style="line-height: 8px;">{{ key }} : ￥{{ value|intcomma }}</p>
+                    {% endfor %}
+                </h6>
+            </div>
+        </div>
+    </div>
+</div>
+<br>
+<div class="row">
+    <div class="col-md-8">
+        <div class="card" style="height:100%">
+            <div class="card-header text-white bg-primary text-center ls-widest font-weight-bold">
+                顧客別年間売上
+            </div>
+            <div class="card-body">
+                <canvas id="lineChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header text-white bg-info text-center ls-widest font-weight-bold">
+                受注件数
+            </div>
+            <div class="card-body">
+                <div class="row mt-2">
+                    <div class="col-auto">
+                        <p class="text-end">総受注件数 : </p>
+                    </div>
+                    <div class="col-auto">
+                        <h4 class="text-success">
+                            {{ total_cnt }}
+                        </h4>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-auto">
+                        <p class="text-end">未納品件数 : </p>
+                    </div>
+                    <div class="col-auto">
+                        <h4 class="text-danger">
+                            {{ undelivery_cnt }}
+                        </h4>
+                        <h6 class="card-title text-center text-secondary">
+                            {% for key, value in undelivey_dict.items %}
+                            <p style="line-height: 8px;">{{ key }} : {{ value|intcomma }}</p>
+                            {% endfor %}
+                        </h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+
+        </div>
+    </div>
+</div>
+<br>
+<br>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"
+    integrity="sha512-ElRFoEQdI5Ht6kZvyzXhYG9NqjtkmlkfYk0wr6wHxU9JEHakS7UJZNeml5ALk+8IKlU6jDgMabC3vkumRokgJA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+    const lineChartCtx = document.getElementById('lineChart').getContext('2d');
+
+    const lineChartLabels = [
+    {% for month in month_list %}
+    '{{ month }}',
+    {% endfor %}
+    ];
+
+    const lineChartData = {
+        labels: lineChartLabels,
+        datasets: [
+            {
+            label: 'a',
+            backgroundColor: 'rgb(81,228,193)',
+            borderColor: 'rgb(81,228,193)',
+            data: [
+        {% for sale in sales_list.0 %}
+        {{ sale }},
+        {% endfor %}
+        ],
+        },
+
+        {
+            label: 'g',
+            backgroundColor: 'rgb(81,228,84)',
+            borderColor: 'rgb(81,228,84)',
+            data: [
+        {% for sale in sales_list.1 %}
+        {{ sale }},
+        {% endfor %}
+        ],
+        },
+
+        {
+            label: 'rt',
+            backgroundColor: 'rgb(51,191,84)',
+            borderColor: 'rgb(51,191,84)',
+            data: [
+        {% for sale in sales_list.2 %}
+        {{ sale }},
+        {% endfor %}
+        ],
+        },
+    ]
+    };
+
+    const lineChart = new Chart(lineChartCtx, {
+        type: 'line',
+        data: lineChartData,
+        options: {
+            responsive: true,
+            legend: {
+                display: false
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false,
+                    },
+                    title:{
+                display: true,
+                text: '納品日'
+                }
+                },
+                y: {
+                    grid: {
+                        display: true,
+                    },
+                    title:{
+                        display: true,
+                        text: '売上額'
+                    },
+                    ticks: {
+                    callback: function(value, index, ticks) {
+                    return '￥' + value;
+                    }
+                    }
+                },
+            }
+        },
+    });
+
+</script>
+{% endblock %}

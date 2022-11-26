@@ -1,0 +1,45 @@
+<!-- sales/templates/sales/components/product_update_modal.html -->
+<div class="modal fade" id="ProductUpdateModal" tabindex="-1" aria-labelledby="ProductUpdateModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form class="mt-5" action="{% url 'sales:product_update' i.pk %}" id="update-form" method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ProductUpdateModalLabel">商品情報更新</h5>
+                    <button type="button" class="btn-close" data-mdb-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <br>
+                <div class="modal-body" style="text-align: left;">
+                    <div class="row">
+                        <div class="col-md-10">
+                            <label class="form-label" for="name">商品名</label>
+                            <p id="update-name"></p>
+                            {{ product_update_form.name }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="unit_price">単価（必須）（円）</label>
+                            <p id="update-unit_price"></p>
+                            {{ product_update_form.unit_price }}
+                            <br>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="unit">単位（必須）</label>
+                            <p id="update-unit"></p>
+                            {{ product_update_form.unit }}
+                            <br>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" type="submit" name="button">更新</button>
+                    <button type="button" class="btn btn-secondary" data-mdb-dismiss="modal">
+                        キャンセル
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>

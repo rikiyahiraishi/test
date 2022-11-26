@@ -1,0 +1,50 @@
+<!-- sales/templates/sales/components/Customer_create_modal.html -->
+<div class="modal fade" id="CustomerCreateModal" tabindex="-1" aria-labelledby="CustomerCreateModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form class="mt-5" action="{% url 'sales:customer_create' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="CustomerCreateModalLabel">新規登録</h5>
+                    <button type="button" class="btn-close" data-mdb-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-10">
+                            <label class="form-label" for="customer_name">会社名（必須）
+                                {{ customer_create_form.customer_name }}
+                            </label>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="post_code">郵便番号（必須）
+                                {{ customer_create_form.post_code }}
+                            </label>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="address">住所（必須）
+                                {{ customer_create_form.address }}
+                            </label>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="phone_number">電話番号
+                                {{ customer_create_form.phone_number }}
+                            </label>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="manager">担当者
+                                {{ customer_create_form.manager }}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" type="submit" name="button">登録</button>
+                    <button type="button" class="btn btn-secondary" data-mdb-dismiss="modal">
+                        キャンセル
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,31 @@
+<!-- sales/templates/sales/components/order_delete_modal.html -->
+
+<div class="modal fade" id="OrderDeleteModal" tabindex="-1" aria-labelledby="orderDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <!-- actionは動的に設定 -->
+        <form class="mt-5" id="delete-form" method="POST">
+          {% csrf_token %}
+          <div class="modal-header">
+            <h5 class="modal-title" id="orderDeleteModalLabel">受入注文削除</h5>
+            <button type="button" class="btn-close" data-mdb-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>以下の受入注文を削除しますか？</p>
+            <!-- ここを動的に設定 -->
+            <p id="delete-datetime"></p>
+            <p id="delete-customer_name"></p>
+            <p id="delete-product_name"></p>
+            <p id="delete-volume"></p>
+            <p id="delete-total_price"></p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-danger" type="submit" name="button">削除</button>
+            <button type="button" class="btn btn-secondary" data-mdb-dismiss="modal">
+              キャンセル
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>

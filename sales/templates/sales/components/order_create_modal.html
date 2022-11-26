@@ -1,0 +1,70 @@
+<!-- sales/templates/sales/components/order_create_modal.html -->
+<div class="modal fade" id="OrderCreateModal" tabindex="-1" aria-labelledby="OrderCreateModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form class="mt-5" action="{% url 'sales:order_create' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="OrderCreateModalLabel">新規注文受入</h5>
+                    <button type="button" class="btn-close" data-mdb-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-10">
+                            <label class="form-label" for="customer_name">顧客名（必須）
+                                {{ order_create_form.customer_name }}
+                            </label>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="product_name">商品名（必須）
+                                {{ order_create_form.product_name }}
+                            </label>
+                        </div>
+                        <div class="col-md-10" style="display:inline-flex;">
+                            <label class="form-label" for="volume">数量（必須） 単位：<label id="show_unit"></label>
+                                {{ order_create_form.volume }}
+                            </label>
+                            
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" id="show_unit_price"></label>
+                        </div>
+                        <div class="col-md-10">
+                            <label class="form-label" for="id_date">納品日
+                                {{ order_create_form.delivery_date }}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" type="submit" name="button">登録</button>
+                    <button type="button" class="btn btn-secondary" data-mdb-dismiss="modal">
+                        キャンセル
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/base/jquery-ui.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+<script type="text/javascript">
+
+    window.addEventListener('DOMContentLoaded', function(){
+  
+        // input要素を取得
+        var new_product_name = document.getElementById("new_product_name");
+        // イベント「input」を登録
+        new_product_name.addEventListener("change",function(){
+        const str = this.value
+        var result = str.split(':');
+        document.getElementById('show_unit_price').innerHTML = '基本価格 : ' + result[1];
+        
+        var result = str.split('/');
+        var result = /(\d{1,10})(.)/.exec(result[1]);
+        document.getElementById('show_unit').innerHTML = result[2];
+        });
+    });
+</script>
