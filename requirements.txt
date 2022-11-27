@@ -3,8 +3,8 @@ beautifulsoup4==4.11.1
 dj-database-url==0.5.0
 dj-static==0.0.6
 Django==3.1
-django-bootstrap-datepicker-plus==4.0.0
-django-bootstrap4==22.2
+django-bootstrap-datepicker-plus==3.0.0
+django-bootstrap4==20.2
 django-filter==22.1
 django-pandas==0.6.6
 et-xmlfile==1.1.0
