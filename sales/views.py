@@ -1,4 +1,4 @@
-from asyncio.windows_events import NULL
+#from asyncio.windows_events import NULL
 from audioop import reverse
 from curses import A_ALTCHARSET
 from encodings import search_function
