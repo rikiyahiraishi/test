@@ -24,3 +24,4 @@ whitenoise==6.2.0
 wincertstore==0.2
 xlwings==0.28.3
 zipp==3.9.0
+psycopg2==2.9.5
