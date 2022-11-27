@@ -25,3 +25,4 @@ wincertstore==0.2
 xlwings==0.28.3
 zipp==3.9.0
 psycopg2==2.9.5
+tkinter==8.6.9
