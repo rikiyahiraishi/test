@@ -1,6 +1,6 @@
 #sales/forms.py
 from secrets import choice
-from tkinter import Widget
+#from tkinter import Widget
 from django import forms
 from django.core.validators import validate_integer
 from numpy import product
