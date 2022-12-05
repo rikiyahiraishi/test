@@ -1,0 +1,29 @@
+<!-- sales/templates/sales/logout.html -->
+{% extends 'sales/base.html' %}
+{% load humanize %}
+
+
+{% block content %}
+<br>
+<br>
+<h3 class="my-12 ml-5">ログアウト</h3>
+<hr>
+<br>
+
+<div class="row">
+    <div class="col-md-3">
+        <form action="" method="post">
+            <p>ログアウトしました。</p>
+            <a href="{% url 'sales:login' %}">ログイン</a>
+        </form>
+    </div>
+</div>
+<br>
+<br>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"
+    integrity="sha512-ElRFoEQdI5Ht6kZvyzXhYG9NqjtkmlkfYk0wr6wHxU9JEHakS7UJZNeml5ALk+8IKlU6jDgMabC3vkumRokgJA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+</script>
+{% endblock %}

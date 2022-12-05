@@ -9,9 +9,12 @@ from urllib import request
 from django.shortcuts import render, resolve_url
 from django.http import HttpResponse
 from django.views.generic import TemplateView, CreateView, ListView, DeleteView, UpdateView
+from django.contrib.auth.views import LoginView, LogoutView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
 import numpy as np
 from .models import Products, Customer, Order
-from .forms import ProductCreateForm, ProductUpdateForm, ProductSearchForm, CustomerCreateForm, CustomerUpdateForm, CustomerSearchForm, OrderCreateForm, OrderUpdateForm, DeliveryFilterForm
+from .forms import LoginForm, ProductCreateForm, ProductUpdateForm, ProductSearchForm, CustomerCreateForm, CustomerUpdateForm, CustomerSearchForm, OrderCreateForm, OrderUpdateForm, DeliveryFilterForm
 from django.db.models import Q
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect
@@ -31,7 +34,7 @@ import os
 
 
 # 初期画面
-class Index(TemplateView):
+class Index(LoginRequiredMixin, TemplateView):
     model = Order
     template_name = 'sales/index.html'
 
@@ -41,23 +44,26 @@ class Index(TemplateView):
         today = datetime.date.today()
         start = '{0}-01-01'.format(today.year)
         end = '{0}-12-31'.format(today.year)
-        # 年間売上関連処理
-        queryset = Order.objects.filter(delivery_status=True, delivery_date__gte=start, delivery_date__lte=end)
-        #queryset = Order.objects.filter(delivery_status=True)
+
+        # 年間総受入件数の算出
+        queryset = Order.objects.filter(Q(user=self.request.user.id), Q(Q(delivery_date__gte=start), Q(delivery_date__lte=end))| Q(delivery_date=None))
         df = read_frame(queryset, fieldnames=['customer_name', 'total_price', 'delivery_date'])
-        # 年間売上の算出と総受入件数の算出
-        context['total_sales'] = df['total_price'].sum()
         context['total_cnt'] = len(df)
+
+        # 年間売上関連処理
+        queryset = Order.objects.filter(user=self.request.user.id, delivery_status=True, delivery_date__gte=start, delivery_date__lte=end)
+        df = read_frame(queryset, fieldnames=['customer_name', 'total_price', 'delivery_date'])
+        # 年間売上の算出
+        context['total_sales'] = df['total_price'].sum()
 
         # グラフ作成のためのpivot集計
         df_pivot = pd.pivot_table(df, index='delivery_date', columns='customer_name', values='total_price', aggfunc=np.sum, fill_value=0)
 
         # X軸は月の情報、Y軸は売上額
         context['month_list'] = [month.strftime('%m/%d') for month in df_pivot.index.values]
-        #context['sales_list'] = [[val[0] for val in df_pivot.values], [val[1] for val in df_pivot.values]]
-        #print([val[0] for val in df_pivot.values])
+
         # 顧客毎の売上集計
-        customer_sales = list()
+        customer_sales = dict()
         for i in range(len(df_pivot.columns.values)):
             customer_name = df_pivot.columns.values[i]
 
@@ -66,8 +72,12 @@ class Index(TemplateView):
             for t in df_pivot[customer_name].values:
                 total = total + t
                 sales_list.append(total)
-            customer_sales.append(sales_list)
+            customer_sales[customer_name] = sales_list
         context['sales_list'] = customer_sales
+
+        #print(df_pivot)
+        #print(df_pivot.columns.values)
+        print(customer_sales)
 
         # 顧客毎の年間売上金額
         customer_sales_dict = dict()
@@ -77,7 +87,7 @@ class Index(TemplateView):
         context['customer_sales_dict'] = customer_sales_dict
 
         # 未納品件数処理関連
-        queryset = Order.objects.filter(delivery_status=False)
+        queryset = Order.objects.filter(user=self.request.user.id, delivery_status=False)
         df = read_frame(queryset, fieldnames=['customer_name', 'total_price', 'delivery_date'])
         # 未納品件数の算出
         context['undelivery_cnt'] = len(df)
@@ -89,11 +99,24 @@ class Index(TemplateView):
             undelivey_dict[df_pivot.index.values[i]] = df_pivot.values[i][0]
         context['undelivey_dict'] = undelivey_dict
 
+        # 未請求件数処理関連
+        queryset = Order.objects.filter(user=self.request.user.id, invoice_status=False)
+        df = read_frame(queryset, fieldnames=['customer_name', 'total_price', 'invoice_date'])
+        # 未請求件数の算出
+        context['uninvoice_cnt'] = len(df)
+        # 未納品商品がある顧客名とその件数を算出
+        df_pivot2 = pd.pivot_table(df, index='customer_name', values='total_price', aggfunc=len, fill_value=0)
+
+        uninvoice_dict = dict()
+        for i in range(len(df_pivot2.index.values)):
+            uninvoice_dict[df_pivot2.index.values[i]] = df_pivot2.values[i][0]
+        context['uninvoice_dict'] = uninvoice_dict
+
         # 月間売上関連処理
         start = '{0}-{1}-01'.format(today.year, today.month)
         _, lastday = calendar.monthrange(today.year, today.month)
         end = '{0}-{1}-{2}'.format(today.year, today.month, lastday)
-        queryset = Order.objects.filter(delivery_status=True, delivery_date__gte=start, delivery_date__lte=end)
+        queryset = Order.objects.filter(user=self.request.user.id, delivery_status=True, delivery_date__gte=start, delivery_date__lte=end)
         df = read_frame(queryset, fieldnames=['customer_name', 'total_price'])
         context['month_sales'] = df['total_price'].sum()
 
@@ -111,9 +134,9 @@ class Index(TemplateView):
 #################################
 # 商品情報のリスト表示
 ################################# 
-class ProductList(ListView):
+class ProductList(LoginRequiredMixin, ListView):
     model = Products
-    paginate_by = 5
+    paginate_by = 10
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -122,17 +145,23 @@ class ProductList(ListView):
         return context
 
     def get_queryset(self):
-        return Products.objects.all()
+        return Products.objects.filter(user = self.request.user.id)
 
 
 
 #################################
 # 商品情報の新規登録
 ################################# 
-class ProductCreate(CreateView):
+class ProductCreate(LoginRequiredMixin, CreateView):
     model = Products
     form_class = ProductCreateForm
     success_url = reverse_lazy('sales:product_list')
+
+    # フォームにユーザ情報を渡す
+    def get_form_kwargs(self, *args, **kwargs):
+        kwgs = super().get_form_kwargs(*args, **kwargs)
+        kwgs["user"] = self.request.user.id
+        return kwgs
 
     def form_valid(self, form):
         # フォームから値を受け取る
@@ -142,6 +171,7 @@ class ProductCreate(CreateView):
 
         new_product = form.save(commit=False)
         new_product.target = Products
+        new_product.user = self.request.user.id
         new_product.save()
 
         message = "商品名「{0}」を新規登録しました。単価：{1}　単位：{2}".format(name, unit_price, unit)
@@ -164,7 +194,7 @@ class ProductCreate(CreateView):
 #################################
 # 商品情報の更新
 ################################# 
-class ProductUpdate(UpdateView):
+class ProductUpdate(LoginRequiredMixin, UpdateView):
     model = Products
     template_name = 'sales/product_list.html'
     form_class = ProductUpdateForm
@@ -180,8 +210,6 @@ class ProductUpdate(UpdateView):
         return super().form_valid(form)
     
     def get_success_url(self):
-        #view_name = 'sales:product_list'
-        #pk = self.object.pk
         return resolve_url('sales:product_list')
 
     def form_invalid(self, form):
@@ -195,7 +223,7 @@ class ProductUpdate(UpdateView):
 #################################
 # 商品情報の削除
 ################################# 
-class ProductDelete(DeleteView):
+class ProductDelete(LoginRequiredMixin, DeleteView):
     """商品情報の削除ビュー"""
     model = Products
 
@@ -216,7 +244,7 @@ def ProductSearch(request):
 
     if searchform.is_valid():
         freeword = searchform.cleaned_data['freeword']
-    search_list = Products.objects.filter(Q(name__icontains = freeword)|Q(unit__icontains = freeword)|Q(unit_price__icontains = freeword))
+    search_list = Products.objects.filter(Q(user = request.user.id) & (Q(name__icontains = freeword)|Q(unit__icontains = freeword)|Q(unit_price__icontains = freeword)))
     
     page_obj, next, prev = orig_parts.pagenation(request, search_list)
 
@@ -255,7 +283,7 @@ def ProductDowmload(request):
                 unit = table_obj['unit_{0}'.format(id)]
                 product_list.append([id, name, unit_price, unit])
     else:
-        object_list = Products.objects.all()
+        object_list = Products.objects.filter(user = request.user.id)
         for i in object_list:
             product_list.append([i.id, i.name, i.unit_price, i.unit])
     
@@ -272,7 +300,7 @@ def ProductDowmload(request):
 #################################
 # 顧客情報のリスト表示
 ################################# 
-class CustomerList(ListView):
+class CustomerList(LoginRequiredMixin, ListView):
     model = Customer
     paginate_by = 10
 
@@ -283,14 +311,14 @@ class CustomerList(ListView):
         return context
 
     def get_queryset(self):
-        return Customer.objects.all()
+        return Customer.objects.filter(user = self.request.user.id)
 
 
 
 #################################
 # 顧客情報の登録
 ################################# 
-class CustomerCreate(CreateView):
+class CustomerCreate(LoginRequiredMixin, CreateView):
     """
     顧客情報の新規作成ビュー
     顧客管理ページのフォームからモデル保存処理をする
@@ -298,6 +326,12 @@ class CustomerCreate(CreateView):
     model = Customer
     form_class = CustomerCreateForm
     success_url = reverse_lazy('sales:customer_list')
+
+    # フォームにユーザ情報を渡す
+    def get_form_kwargs(self, *args, **kwargs):
+        kwgs = super().get_form_kwargs(*args, **kwargs)
+        kwgs["user"] = self.request.user.id
+        return kwgs
 
     def form_valid(self, form):
         # フォームから値を受け取る
@@ -308,7 +342,7 @@ class CustomerCreate(CreateView):
         manager = str(self.request.POST.get('manager'))
 
         new_customer = form.save(commit=False)
-        new_customer.target = Products
+        new_customer.user = self.request.user.id
         new_customer.save()
 
         message = "会社名「{0}」を新規登録しました。郵便番号：{1}　住所：{2}　電話番号：{3}　担当者：{4}".format(customer_name, post_code, address, phone_number, manager)
@@ -324,14 +358,14 @@ class CustomerCreate(CreateView):
         else:
             pass
 
-        return redirect('sales:product_list')
+        return redirect('sales:customer_list')
 
 
 
 #################################
 # 顧客情報の更新 
 ################################# 
-class CustomerUpdate(UpdateView):
+class CustomerUpdate(LoginRequiredMixin, UpdateView):
     model = Customer
     template_name = 'sales/customer_list.html'
     form_class = CustomerUpdateForm
@@ -362,7 +396,7 @@ class CustomerUpdate(UpdateView):
 #################################
 # 顧客情報の削除
 ################################# 
-class CustomerDelete(DeleteView):
+class CustomerDelete(LoginRequiredMixin, DeleteView):
     """商品情報の削除ビュー"""
     model = Customer
 
@@ -379,12 +413,11 @@ class CustomerDelete(DeleteView):
 # 顧客情報の検索 
 #################################    
 def CustomerSearch(request):
-    #if request.method == 'POST':
     searchform = CustomerSearchForm(request.GET)
 
     if searchform.is_valid():
         freeword = searchform.cleaned_data['freeword']
-    search_list = Customer.objects.filter(Q(customer_name__icontains = freeword)|Q(post_code__icontains = freeword)|Q(address__icontains = freeword)|Q(phone_number__icontains = freeword)|Q(manager__icontains = freeword))
+    search_list = Customer.objects.filter(Q(user = request.user.id) & (Q(customer_name__icontains = freeword)|Q(post_code__icontains = freeword)|Q(address__icontains = freeword)|Q(phone_number__icontains = freeword)|Q(manager__icontains = freeword)))
 
     page_obj, next, prev = orig_parts.pagenation(request, search_list)
 
@@ -426,7 +459,7 @@ def CustomerDowmload(request):
                 manager = table_obj['manager_{0}'.format(id)]
                 customer_list.append([id, customer_name, post_code, address, phone_number, manager])
     else:
-        object_list = Customer.objects.all()
+        object_list = Customer.objects.filter(user = request.user.id)
         for i in object_list:
             customer_list.append([i.id, i.customer_name, i.post_code, i.address, i.phone_number, i.manager])
     
@@ -443,12 +476,13 @@ def CustomerDowmload(request):
 #################################
 # 受入情報リストの表示関連
 #################################
+@login_required
 def order_list(request):
-    obj_list = Order.objects.all().order_by('-order_datetime')
+    obj_list = Order.objects.filter(user=request.user.id).order_by('-order_datetime')
 
     # 顧客名のドロップボックスを作成
     order_form = DeliveryFilterForm(request.GET)
-    order_form = orig_parts.customer_dropbox(order_form)
+    order_form = orig_parts.customer_dropbox(order_form, request.user.id)
     # ページネーション機能
     page_obj, next, prev = orig_parts.pagenation(request, obj_list)
 
@@ -469,6 +503,7 @@ def order_list(request):
 #################################
 # 受入画面での顧客セット
 #################################
+@login_required
 def order_customer_set(request):
     customer_name = request.GET.get('customer_name')
     if customer_name == '顧客名を選択してください':
@@ -478,12 +513,12 @@ def order_customer_set(request):
 
     # 商品名のドロップボックスを作成
     order_form = OrderCreateForm()
-    order_form = orig_parts.products_dropbox(order_form)
+    order_form = orig_parts.products_dropbox(order_form, request.user.id)
     # 顧客名のドロップボックスを作成
     order_form2 = DeliveryFilterForm({'customer_name': customer_name})
-    order_form2 = orig_parts.customer_dropbox(order_form2)
+    order_form2 = orig_parts.customer_dropbox(order_form2, request.user.id)
     # ページネーション機能
-    obj_list = Order.objects.filter(customer_name=customer_name).order_by('-order_datetime')
+    obj_list = Order.objects.filter(customer_name=customer_name, user=request.user.id).order_by('-order_datetime')
     page_obj, next, prev = orig_parts.pagenation(request, obj_list)
 
     params = {
@@ -503,6 +538,7 @@ def order_customer_set(request):
 #################################
 # 受入情報の新規作成
 #################################
+@login_required
 def order_create(request):
     if request.method == 'POST':
         customer_name = str(request.POST['customer_name'])
@@ -519,12 +555,12 @@ def order_create(request):
 
             # 商品名のドロップボックスを作成
             order_form = OrderCreateForm()
-            order_form = orig_parts.products_dropbox(order_form)
+            order_form = orig_parts.products_dropbox(order_form, request.user.id)
             # 顧客名のドロップボックスを作成
             order_form2 = DeliveryFilterForm({'customer_name': customer_name})
-            order_form2 = orig_parts.customer_dropbox(order_form2)
+            order_form2 = orig_parts.customer_dropbox(order_form2, request.user.id)
             # ページネーション機能
-            obj_list = Order.objects.filter(customer_name=customer_name).order_by('-order_datetime')
+            obj_list = Order.objects.filter(customer_name=customer_name, user=request.user.id).order_by('-order_datetime')
             page_obj, next, prev = orig_parts.pagenation(request, obj_list)
 
             params = {
@@ -553,9 +589,9 @@ def order_create(request):
 
         # 受入情報の新規登録処理
         if delivery_date:
-            Order.objects.create(customer_name=customer_name, product_name=product_name, unit_price=unit_price, unit=unit, volume=volume, total_price=total_price, delivery_date=delivery_date, delivery_status=False, invoice_status=False)
+            Order.objects.create(customer_name=customer_name, product_name=product_name, unit_price=unit_price, unit=unit, volume=volume, total_price=total_price, delivery_date=delivery_date, delivery_status=False, invoice_status=False, user=request.user.id)
         else:
-            Order.objects.create(customer_name=customer_name, product_name=product_name, unit_price=unit_price, unit=unit, volume=volume, total_price=total_price, delivery_status=False, invoice_status=False)
+            Order.objects.create(customer_name=customer_name, product_name=product_name, unit_price=unit_price, unit=unit, volume=volume, total_price=total_price, delivery_status=False, invoice_status=False, user=request.user.id)
             delivery_date = '指定なし'
 
         # 更新処理完了後の表示情報のセット
@@ -568,12 +604,12 @@ def order_create(request):
     
     # 商品名のドロップボックスを作成
     order_form = OrderCreateForm()
-    order_form = orig_parts.products_dropbox(order_form)
+    order_form = orig_parts.products_dropbox(order_form, request.user.id)
     # 顧客名のドロップボックスを作成
     order_form2 = DeliveryFilterForm({'customer_name': customer_name})
-    order_form2 = orig_parts.customer_dropbox(order_form2)
+    order_form2 = orig_parts.customer_dropbox(order_form2, request.user.id)
     # ページネーション機能
-    obj_list = Order.objects.filter(customer_name=customer_name).order_by('-order_datetime')
+    obj_list = Order.objects.filter(customer_name=customer_name, user=request.user.id).order_by('-order_datetime')
     page_obj, next, prev = orig_parts.pagenation(request, obj_list)
 
     params = {
@@ -592,6 +628,7 @@ def order_create(request):
 #################################
 # 受入情報の更新
 #################################
+@login_required
 def order_update(request, pk):
     if request.method == 'POST':
         customer_name = str(request.POST.get('customer_name'))
@@ -645,12 +682,12 @@ def order_update(request, pk):
 
     # 商品名のドロップボックスを作成
     order_form = OrderCreateForm()
-    order_form = orig_parts.products_dropbox(order_form)
+    order_form = orig_parts.products_dropbox(order_form, request.user.id)
     # 顧客名のドロップボックスを作成
     order_form2 = DeliveryFilterForm({'customer_name': customer_name})
-    order_form2 = orig_parts.customer_dropbox(order_form2)
+    order_form2 = orig_parts.customer_dropbox(order_form2, request.user.id)
     # ページネーション機能
-    obj_list = Order.objects.filter(customer_name=customer_name).order_by('-order_datetime')
+    obj_list = Order.objects.filter(customer_name=customer_name, user=request.user.id).order_by('-order_datetime')
     page_obj, next, prev = orig_parts.pagenation(request, obj_list)
     
     params = {
@@ -670,6 +707,7 @@ def order_update(request, pk):
 #################################
 # 受入情報の削除
 #################################
+@login_required
 def order_delete(request, pk): 
     if request.method == 'POST':
         # 受入情報の削除処理
@@ -702,12 +740,12 @@ def order_delete(request, pk):
 
     # 商品名のドロップボックスを作成
     order_form = OrderCreateForm()
-    order_form = orig_parts.products_dropbox(order_form)
+    order_form = orig_parts.products_dropbox(order_form, request.user.id)
     # 顧客名のドロップボックスを作成
     order_form2 = DeliveryFilterForm({'customer_name': customer_name})
-    order_form2 = orig_parts.customer_dropbox(order_form2)
+    order_form2 = orig_parts.customer_dropbox(order_form2, request.user.id)
     # ページネーション機能(途中)
-    obj_list = Order.objects.filter(customer_name=customer_name).order_by('-order_datetime')
+    obj_list = Order.objects.filter(customer_name=customer_name, user=request.user.id).order_by('-order_datetime')
     page_obj, next, prev = orig_parts.pagenation(request, obj_list)
 
     params = {
@@ -754,7 +792,7 @@ def OrderSearch(request):
         search_list = Order.objects.filter(**condition_dict).order_by('-order_datetime').order_by('-order_datetime')
 
     else:
-        search_list = Order.objects.all().order_by('-order_datetime').order_by('-order_datetime')
+        search_list = Order.objects.filter(user=request.user.id).order_by('-order_datetime').order_by('-order_datetime')
 
 
     paginator = Paginator(search_list, 10)
@@ -775,14 +813,15 @@ def OrderSearch(request):
 #################################
 # 納品書作成画面関連
 #################################
+@login_required
 def delivery_slip(request):
-    obj_list = Order.objects.all().order_by('-order_datetime')
+    obj_list = Order.objects.filter(user=request.user.id).order_by('-order_datetime')
 
     # 商品名のドロップボックスを作成
     order_form = DeliveryFilterForm(request.GET)
-    order_form = orig_parts.products_dropbox(order_form)
+    order_form = orig_parts.products_dropbox(order_form, request.user.id)
     # 顧客名のドロップボックスを作成
-    order_form = orig_parts.customer_dropbox(order_form)
+    order_form = orig_parts.customer_dropbox(order_form, request.user.id)
     # ページネーション機能
     page_obj, next, prev = orig_parts.pagenation(request, obj_list)
 
@@ -801,12 +840,13 @@ def delivery_slip(request):
 #################################
 # 納品書発行画面でのフィルタ処理 
 #################################
-condition_dict = {}
+@login_required
 def delivery_search(request):
+    condition_dict = {}
     if request.method == 'GET':
         customer_name = request.GET.get('customer_name')
         if customer_name == '顧客名を選択してください':
-            obj_list = Order.objects.all()
+            obj_list = Order.objects.filter(user=request.user.id)
 
             message = '顧客名を選択してください。'
             messages.add_message(request, messages.ERROR, message)
@@ -834,17 +874,15 @@ def delivery_search(request):
                 if not delivery_status == '納品状態を選択してください':
                     condition_dict['delivery_status'] = delivery_status
 
-            # 条件リストがあれば、設定された条件でフィルタリングし、なければ当該の顧客名でフィルタリングする
-            if condition_dict:
-                obj_list = Order.objects.filter(**condition_dict).order_by('-order_datetime')
-            else:
-                obj_list = Order.objects.filter(customer_name=customer_name).order_by('-order_datetime')
+            # ログインユーザの設定
+            condition_dict['user'] = request.user.id
+            obj_list = Order.objects.filter(**condition_dict).order_by('-order_datetime')
 
     # 商品名のドロップボックスを作成
     order_form = DeliveryFilterForm(request.GET)
-    order_form = orig_parts.products_dropbox(order_form)
+    order_form = orig_parts.products_dropbox(order_form, request.user.id)
     # 顧客名のドロップボックスを作成
-    order_form = orig_parts.customer_dropbox(order_form)
+    order_form = orig_parts.customer_dropbox(order_form, request.user.id)
     # ページネーション機能
     page_obj, next, prev = orig_parts.pagenation(request, obj_list)
     
@@ -876,6 +914,7 @@ def delivery_search(request):
 #################################
 # 納品書発行処理
 #################################
+@login_required
 def create_delivery_slip(request):
     if request.method == 'POST':
         delivery_info = request.POST
@@ -905,7 +944,7 @@ def create_delivery_slip(request):
             if valid:              
                 # 納品書発行処理
                 from . import create_delivery_slip
-                pdf_path, tf, message = create_delivery_slip.create_delivery_slip(pk_list, str(delivery_info['delivery_number']))
+                pdf_path, tf, message = create_delivery_slip.create_delivery_slip(pk_list, str(delivery_info['delivery_number']), request.user.id)
                 if tf:
                     # delivery_statusを更新
                     for pk in pk_list:
@@ -915,8 +954,8 @@ def create_delivery_slip(request):
                         else:
                             import datetime
                             Order.objects.filter(pk=pk).update(delivery_status='True', delivery_date=datetime.date.today())
-                    message = message + '{0}に保存しました。'.format(pdf_path)
-                    messages.add_message(request, messages.INFO, message)
+                    #message = message + '{0}に保存しました。'.format(pdf_path)
+                    #messages.add_message(request, messages.INFO, message)
                     # PDFファイルのダウンロード
                     response = HttpResponse(open(pdf_path, 'rb').read(), content_type='application/pdf')
                     response['Content-Disposition'] = 'attachment; filename="{0}";'.format(urllib.parse.quote(os.path.basename(pdf_path)))
@@ -928,11 +967,11 @@ def create_delivery_slip(request):
 
     # 商品名のドロップボックスを作成
     order_form = DeliveryFilterForm()
-    order_form = orig_parts.products_dropbox(order_form)
+    order_form = orig_parts.products_dropbox(order_form, request.user.id)
     # 顧客名のドロップボックスを作成
-    order_form = orig_parts.customer_dropbox(order_form)
+    order_form = orig_parts.customer_dropbox(order_form, request.user.id)
     # ページネーション機能
-    obj_list = Order.objects.all().order_by('-order_datetime')
+    obj_list = Order.objects.filter(user=request.user.id).order_by('-order_datetime')
     page_obj, next, prev = orig_parts.pagenation(request, obj_list)
 
     params = {
@@ -950,14 +989,15 @@ def create_delivery_slip(request):
 #################################
 # 請求書作成画面関連
 #################################
+@login_required
 def invoice_slip(request):
-    obj_list = Order.objects.all().order_by('-order_datetime')
+    obj_list = Order.objects.filter(user=request.user.id).order_by('-order_datetime')
 
     # 商品名のドロップボックスを作成
     order_form = DeliveryFilterForm(request.GET)
-    order_form = orig_parts.products_dropbox(order_form)
+    order_form = orig_parts.products_dropbox(order_form, request.user.id)
     # 顧客名のドロップボックスを作成
-    order_form = orig_parts.customer_dropbox(order_form)
+    order_form = orig_parts.customer_dropbox(order_form, request.user.id)
     # ページネーション機能
     page_obj, next, prev = orig_parts.pagenation(request, obj_list)
 
@@ -976,12 +1016,13 @@ def invoice_slip(request):
 #################################
 # 請求書発行画面でのフィルタ処理 
 #################################
-condition_dict = {}
+@login_required
 def invoice_search(request):
+    condition_dict = {}
     if request.method == 'GET':
         customer_name = request.GET.get('customer_name')
         if customer_name == '顧客名を選択してください':
-            obj_list = Order.objects.all()
+            obj_list = Order.objects.filter(user=request.user.id)
 
             message = '顧客名を選択してください。'
             messages.add_message(request, messages.ERROR, message)
@@ -1015,17 +1056,15 @@ def invoice_search(request):
                 if not invoice_status == '請求状態を選択してください':
                     condition_dict['invoice_status'] = invoice_status
 
-            # 条件リストがあれば、設定された条件でフィルタリングし、なければ当該の顧客名でフィルタリングする
-            if condition_dict:
-                obj_list = Order.objects.filter(**condition_dict).order_by('-order_datetime')
-            else:
-                obj_list = Order.objects.filter(customer_name=customer_name).order_by('-order_datetime')
+            # ログインユーザの設定
+            condition_dict['user'] = request.user.id
+            obj_list = Order.objects.filter(**condition_dict).order_by('-order_datetime')
 
     # 商品名のドロップボックスを作成
     order_form = DeliveryFilterForm(request.GET)
-    order_form = orig_parts.products_dropbox(order_form)
+    order_form = orig_parts.products_dropbox(order_form, request.user.id)
     # 顧客名のドロップボックスを作成
-    order_form = orig_parts.customer_dropbox(order_form)
+    order_form = orig_parts.customer_dropbox(order_form, request.user.id)
     # ページネーション機能
     page_obj, next, prev = orig_parts.pagenation(request, obj_list)
     
@@ -1057,6 +1096,7 @@ def invoice_search(request):
 #################################
 # 請求書発行処理
 #################################
+@login_required
 def create_invoice_slip(request):
     if request.method == 'POST':
         invoice_info = request.POST
@@ -1107,13 +1147,13 @@ def create_invoice_slip(request):
                     duration = start + ' - ' + end
                 
                 from . import create_invoice_slip
-                pdf_path, tf, message = create_invoice_slip.create_invoice_slip(pk_list, str(invoice_info['invoice_number']), duration)
+                pdf_path, tf, message = create_invoice_slip.create_invoice_slip(pk_list, str(invoice_info['invoice_number']), duration, request.user.id)
                 if tf:
                     # invoice_statusを更新
                     for pk in pk_list:
                         Order.objects.filter(pk=pk).update(invoice_status='True', invoice_date=datetime.date.today().strftime('%Y-%m-%d'))
-                    message = message + '{0}に保存しました。'.format(pdf_path)
-                    messages.add_message(request, messages.INFO, message)
+                    #message = message + '{0}に保存しました。'.format(pdf_path)
+                    #messages.add_message(request, messages.INFO, message)
 
                     # PDFファイルのダウンロード
                     response = HttpResponse(open(pdf_path, 'rb').read(), content_type='application/pdf')
@@ -1126,12 +1166,12 @@ def create_invoice_slip(request):
 
     # 商品名のドロップボックスを作成
     order_form = DeliveryFilterForm()
-    order_form = orig_parts.products_dropbox(order_form)
+    order_form = orig_parts.products_dropbox(order_form, request.user.id)
     # 顧客名のドロップボックスを作成
-    order_form = orig_parts.customer_dropbox(order_form)
+    order_form = orig_parts.customer_dropbox(order_form, request.user.id)
     # ページネーション機能
     #obj_list = Order.objects.filter(customer_name=customer_name)
-    obj_list = Order.objects.all().order_by('-order_datetime')
+    obj_list = Order.objects.filter(user=request.user.id).order_by('-order_datetime')
     page_obj, next, prev = orig_parts.pagenation(request, obj_list)
 
     params = {
@@ -1140,7 +1180,17 @@ def create_invoice_slip(request):
         'next_page_href': orig_parts.some_page_href(next, customer_name),
         'prev_page_href': orig_parts.some_page_href(prev, customer_name),
         'customer_name': customer_name,
-        #'response': response
     }
 
     return render(request, 'sales/invoice_slip.html', params)
+
+
+#################################
+# ログイン・ログアウト関連処理
+#################################
+class Login(LoginView):
+    form_class = LoginForm
+    template_name = 'sales/login.html'
+
+class Logout(LogoutView):
+    template_name = 'sales/logout.html'

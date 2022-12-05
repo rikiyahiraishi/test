@@ -6,6 +6,7 @@ from django.core.validators import validate_integer
 from numpy import product
 from .models import Order, Products, Customer
 import re
+from django.contrib.auth.forms import AuthenticationForm
 #from bootstrap_datepicker_plus import DatePickerInput
 
 # 商品情報管理
@@ -36,11 +37,14 @@ class ProductCreateForm(forms.ModelForm):
 
         return form_unit_price
     
+    def __init__(self, user=None, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
 
     # nameをバリデーションする
     def clean_name(self):
         form_name = self.cleaned_data['name']
-        product_tf = Products.objects.filter(name=form_name)
+        product_tf = Products.objects.filter(name=form_name, user=self.user)
 
         message = '商品名「{0}」は既に登録されています。'.format(form_name)
         if product_tf:
@@ -115,10 +119,14 @@ class CustomerCreateForm(forms.ModelForm):
                                                  'class': 'form-control'}),
         }
 
+    def __init__(self, user=None, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
     # customer_nameをバリデーションする
     def clean_customer_name(self):
         form_name = self.cleaned_data['customer_name']
-        product_tf = Customer.objects.filter(customer_name=form_name)
+        product_tf = Customer.objects.filter(customer_name=form_name, user=self.user)
 
         message = '会社名「{0}」は既に登録されています。'.format(form_name)
         if product_tf:
@@ -370,3 +378,10 @@ class DeliveryFilterForm(forms.Form):
     invoice_number = forms.DateField(
                     widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': '請求番号を入力', 'id': 'invoice_number', 'invoice': 'delivery_number'})
                     )
+
+# ログインフォーム
+class LoginForm(AuthenticationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-control'

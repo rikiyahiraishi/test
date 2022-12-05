@@ -3,6 +3,12 @@
 
 {% block content %}
 <style>
+    #syohinmei {
+        position: relative;
+        top: 6px;
+        left: 0px;
+    }
+
     #product_name {
         position: relative;
         top: -3px;
@@ -118,10 +124,10 @@
     <div class="row mt-4">
         <!-- 商品名のチェックボックス作成 -->
         <div class="col-auto">
-            <div class="form-check" id="product_check">
-                <input class="form-check-input" type="checkbox" value="" name=""
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="product_check" value="" name=""
                     onclick="connecttext('product_name',this.checked);" />
-                <label class="form-check-label" for="product_name"> 商品名 </label>
+                <label class="form-check-label" for="product_name" id="syohinmei"> 商品名 </label>
             </div>
         </div>
         <!-- 商品名のドロップダウン作成 -->

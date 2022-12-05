@@ -4,44 +4,42 @@ from .models import Products, Customer, Order
 import pandas as pd
 import openpyxl
 import sys
+import argparse
 import os
 import re
 import datetime
 
-from openpyxl.styles.fonts import Font
-from openpyxl.styles import Alignment
-from openpyxl.styles.borders import Border, Side
-import subprocess
-import shutil
+import xlwings as xw
 from . import log_out
 
 ##########################################################################
-file_path = "C:/Users/rikiya/Desktop/web_app/config/_format/請求書_小松.xlsx"
+file_path = "C:/Users/rikiya/Desktop/web_app/config/_format/請求書作成.xlsx"
 log_dir = "C:/Users/rikiya/Desktop/web_app/config/_log"
 # 請求書シートのPDF出力
-invoice_pdf_dir = "C:/Users/rikiya/Desktop"
+invoice_pdf_dir = "C:/Users/rikiya/Desktop/"
 ##########################################################################
 
-def invoice_write(wb, df, invoice_date, invoice_number, invoice_period, post_code, address, company_name, logging):
+def invoice_write(df, invoice_date, invoice_number, invoice_period, post_code, address, company_name, logging):
     try:
         status = True
         # 請求書シートをアクティブシートに設定
-        active_sheet = wb['請求書']
+        active_sht = xw.sheets["請求書"]
+        active_sht.activate()
 
         # 宛先会社情報の入力
-        active_sheet['A5'] = "〒 " + post_code
-        active_sheet['A6'] = "    " + address
-        active_sheet['A7'] = company_name
+        xw.Range("A5").value = "〒 " + post_code
+        xw.Range("A6").value = "    " + address
+        xw.Range("A7").value = company_name
 
         # 請求番号、請求日の書き込み
-        active_sheet['I5'] = invoice_number
-        active_sheet['I6'] = invoice_date
+        xw.Range("I5").value = invoice_number
+        xw.Range("I6").value = invoice_date
 
         # 請求期間の書き込み
-        active_sheet['B10'] = invoice_period
+        xw.Range("B10").value = invoice_period
 
         # 前回のデータ削除
-        tf = del_past_data(active_sheet, logging)
+        tf = del_past_data(active_sht, logging)
         if not tf:
             # エラーを出力する
             logging.error("前回データを削除できなったので、終了します。")
@@ -52,96 +50,67 @@ def invoice_write(wb, df, invoice_date, invoice_number, invoice_period, post_cod
         row_list = []
         # [0]:受注日時、[1]:受注番号、[2]:納品日、[3]:商品名、[4]:数量、[5]:単位、[6]:単価、[7]:金額
         for index, row in df.iterrows():
-            new_row = [row[0], row[1], row[2], row[3], row[4], row[5], row[6]]
+            new_row = [row[0], row[1],  "",  "",  "", row[2], row[3], row[4], row[5], row[6]]
             row_list.append(new_row)
         # 「以下余白」の追加
-        row_list.append(["以下余白", "" , "" , "" , "", "", ""])
+        row_list.append(["以下余白", "" , "" , "" , "", "", "", "", "", ""])
 
-        # 追加する行数
-        add_row = 0
-        col_list = ['A', 'B', 'F', 'G', 'H', 'I', 'J']
         # row_listの行数をカウントし、データ数が25件より多い場合は、その分だけ行を追加する
         if len(row_list) > 25:
-            add_row = len(row_list)-25
             for i in range(len(row_list)-25):
-                active_sheet.insert_rows(18)
-                
-                # 追加行のフォント変更処理
-                for col in col_list:
-                    STR = '{0}18'.format(col)
-                    active_sheet[STR].font = Font(name='メイリオ', size=24)
-                    active_sheet[STR].alignment = Alignment(horizontal='center', vertical='center')
-
-                # 表示フォーマットの変更（日付）    
-                active_sheet['A18'].number_format = "yyyy/mm/dd"
-                active_sheet['I18'].number_format = "yyyy/mm/dd"
-
-                # 罫線の設定
-                side = Side(style='medium', color='AEAAAA')
-                active_sheet['A18'].border = Border(left=side)
-                active_sheet['J18'].border = Border(right=side)
-
-                # 42行目以降の商品名欄の結合と中央揃え
-                STR = 'B{0}:E{0}'.format(42+i)
-                active_sheet.merge_cells(range_string=STR)
+                active_sht.range('18:18').insert(shift='down')
+                active_sht.range('B18:E18').merge()
 
         # 納品商品データの書き込み
-        for i in range(len(row_list)):
-            row = row_list[i]
-            for t in range(len(col_list)):
-                STR = '{0}{1}'.format(col_list[t], 17+i)
-                active_sheet[STR] = row[t]
-
-        # 合計処理の記入
-        active_sheet['J{0}'.format(44+add_row)] = '=SUM(J17:J{0})'.format(41+add_row)
-        active_sheet['J{0}'.format(46+add_row)] = '=ROUNDDOWN(J{0}*J{1},0)'.format(44+add_row, 45+add_row)
-        active_sheet['J{0}'.format(47+add_row)] = '=J{0}+J{1}'.format(44+add_row, 46+add_row)
-
-        active_sheet['B11'] = '=J{0}'.format(47+add_row)
+        xw.Range("A17").value = row_list
 
     except Exception as err:
         logging.exception(err)
+
+        # Excelファイルの終了
+        app = xw.apps.active
+        app.quit()
+
         logging.info("Process Failed ---make_invoiceslip---")
         status = False
 
-    return active_sheet, status
+    return active_sht, status
 
 
 
-def del_past_data(active_sheet, logging):
+def del_past_data(active_sht, logging):
+    target_col = "A"
     status = True
     try:
         # A列の最終行を取得
-        maxRow = active_sheet.max_row + 1
-        maxClm = active_sheet.max_column + 1
+        lwr_r_cell = active_sht.cells.last_cell
+        lwr_row = lwr_r_cell.row
+        lwr_cell = active_sht.range((lwr_row, target_col))
 
-        for j in range(1, maxClm):
-            # 列の指定
-            if j == 1:
-                for i in reversed(range(1, maxRow)):
-                    if active_sheet.cell(row=i, column=j).value != None:
-                        last_row = i
-                        break
+        if lwr_cell.value is None:
+           lwr_cell = lwr_cell.end('up')
+        # 最終行
+        last_row = lwr_cell.row
 
-        # 最終行が17以下ならデータが存在しないので、17に設定
+        # 最終行が15以下ならデータが存在しないので、14に設定
         if last_row <= 17:
             last_row = 17
 
+        data_range = "A17:J{0}".format(last_row)
         # 前回のデータ削除
-        for row in active_sheet.iter_rows(min_row=17, min_col=1, max_row=last_row, max_col=2):
-            for cell in row:
-                cell.value = None
-        for row in active_sheet.iter_rows(min_row=17, min_col=6, max_row=last_row, max_col=10):
-            for cell in row:
-                cell.value = None
+        xw.Range(data_range).clear_contents()
 
         # 複数ぺージになっていた場合に、単一ページに戻す（削除）
         if last_row > 41:
             for i in range(last_row - 41):
-                active_sheet.delete_rows(18)
+                active_sht.range("18:18").delete()
 
     except Exception as err:
         logging.exception(err)
+
+        # Excelファイルの終了
+        app = xw.apps.active
+        app.quit()
 
         # 正常に終了しなかったことを表示
         status = False
@@ -176,21 +145,21 @@ def list_to_df(pk_list):
 
 
 
-def create_invoice_slip(pk_list, invoice_number, invoice_period, login_user):
+def create_invoice_slip(pk_list, invoice_number, invoice_period):
     try:
         # ログモジュールの初期化
         logging = log_out.setup_logging(log_dir)
         logging.info("Process Start ---make_invoiceslip---")
 
-        # openpyxlでのエクセルファイルの読み込み
-        wb = openpyxl.load_workbook(file_path)
+        # xlwingsでのエクセルファイルの読み込み
+        input_book = xw.Book(file_path)
 
         # シートの読み込み
-        sheet_obj = wb.sheetnames
+        sheet_obj = xw.sheets
         # シート名のリスト化
         sheet_list = []
         for i in range(len(sheet_obj)):
-            sheet_list.append(sheet_obj[i])
+            sheet_list.append(xw.sheets[i].name)
 
         # 納品書シートの存在確認
         if not "請求書" in sheet_list:
@@ -203,7 +172,7 @@ def create_invoice_slip(pk_list, invoice_number, invoice_period, login_user):
 
         # pk_listから顧客情報を取得
         customer_name = Order.objects.get(pk=pk_list[0]).customer_name
-        customer_info = Customer.objects.get(customer_name=customer_name, user=login_user)
+        customer_info = Customer.objects.get(customer_name=customer_name)
         address = customer_info.address
         post_code = customer_info.post_code
 
@@ -211,7 +180,7 @@ def create_invoice_slip(pk_list, invoice_number, invoice_period, login_user):
         if not invoice_number:
             invoice_number = "-"
         today = datetime.date.today()
-        active_sht, status = invoice_write(wb, df, today, invoice_number, invoice_period, post_code, address, customer_name, logging)
+        active_sht, status = invoice_write(df, today, invoice_number, invoice_period, post_code, address, customer_name, logging)
 
         # 書き込みに失敗したら処理を終了する
         if not status:
@@ -220,7 +189,7 @@ def create_invoice_slip(pk_list, invoice_number, invoice_period, login_user):
 
         # PDFファイルパスの生成
         # ディレクトリが存在しない場合は、ディレクトリを作成
-        invoice_dir = "{0}/{1}/{2}/{3}/{4}/{5}/{6}/".format(invoice_pdf_dir, "web_app", "UserID", login_user, customer_name, "請求書", today.year)
+        invoice_dir = "{0}/{1}/{2}/{3}/{4}/".format(invoice_pdf_dir, "web_app", customer_name, "請求書", today.year)
         if not os.path.exists(invoice_dir):
             os.makedirs(invoice_dir, exist_ok=False)
 
@@ -251,20 +220,23 @@ def create_invoice_slip(pk_list, invoice_number, invoice_period, login_user):
             pre_file = "{0}_請求書_{1}".format("".join(date), customer_name)
             new_file_name = "{0}_{1}.pdf".format(pre_file, new_num)
 
-        # bookの保存
-        wb.save(file_path)
-
         #ファイル名の生成
         new_file_path = os.path.join(invoice_dir, new_file_name)
         # PDFファイルの出力
-        subprocess.run(['C:\Program Files\LibreOffice\program\soffice.com', '--headless', '--convert-to', 'pdf', '--outdir', r'{0}'.format(invoice_pdf_dir), r'{0}'.format(file_path)])
-        # PDFファイルの移動
-        pdf_path = os.path.join(invoice_pdf_dir, '{0}.pdf'.format(os.path.splitext(os.path.basename(file_path))[0]))
-        shutil.move(pdf_path, new_file_path)
+        active_sht.to_pdf(path=new_file_path, show=False)
+
+        # bookの保存
+        input_book.save()
+        app = xw.apps.active
+        app.quit()
     
     except Exception as err:
         logging.exception(err)
         logging.info("Process End ---make_invoiceslip---")
+
+        # Excelファイルの終了
+        app = xw.apps.active
+        app.quit()
 
         # 正常に終了しなかったことを通知
         message = '請求書の作成処理に失敗しました。ログ内容を管理者に連絡してください。'

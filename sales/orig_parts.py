@@ -3,10 +3,10 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 
 # 商品名のドロップボックスを作成
-def products_dropbox(form):
+def products_dropbox(form, user_id):
     choice_list = list()
     choice_list.append(('商品名を選択してください', '商品名を選択してください ▼')) 
-    object_list = Products.objects.all().values()
+    object_list = Products.objects.filter(user=user_id).values()
     for i in range(len(object_list)):
         choice_list.append((object_list[i]['name']+':'+object_list[i]['unit_price']+'円 / '+object_list[i]['unit'], object_list[i]['name']))    
     form.fields['product_name'].widget.choices = choice_list
@@ -16,10 +16,10 @@ def products_dropbox(form):
 
 
 # 顧客名のドロップボックスを作成
-def customer_dropbox(form):
+def customer_dropbox(form, user_id):
     choice_list2 = list()
     choice_list2.append(('顧客名を選択してください', '顧客名を選択してください ▼')) 
-    object_list2 = Customer.objects.all().values()
+    object_list2 = Customer.objects.filter(user=user_id).values()
     for i in range(len(object_list2)):
         choice_list2.append((object_list2[i]['customer_name'], object_list2[i]['customer_name']))   
     form.fields['customer_name'].widget.choices = choice_list2

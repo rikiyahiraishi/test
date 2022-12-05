@@ -14,20 +14,34 @@ COLOR_CHOICES = (('primary', 'primary'),
 
 
 class Products(models.Model):
-    name = models.CharField('商品名', max_length=50, unique=True)
+    name = models.CharField('商品名', max_length=50)
     unit_price = models.CharField('単価', max_length=50)
     unit = models.CharField('単位', max_length=50)
+    user = models.CharField('ユーザID', max_length=50, blank=False)
+
+    class Meta:
+        constraints = [
+            # 同ユーザで同商品名を登録させない
+            models.UniqueConstraint(fields=['name', 'user'], name='unique_product'),
+        ]
 
     def __str__(self):
         return self.name
 
 
 class Customer(models.Model):
-    customer_name = models.CharField('顧客様名', max_length=50, unique=True)
+    customer_name = models.CharField('顧客様名', max_length=50)
     post_code = models.CharField('郵便番号', max_length=10)
     address = models.CharField('住所', max_length=50)
     phone_number = models.CharField('電話番号', max_length=15, blank=True, null=True)
     manager = models.CharField('担当者', max_length=20, blank=True, null=True)
+    user = models.CharField('ユーザID', max_length=50, blank=False)
+
+    class Meta:
+        constraints = [
+            # 同ユーザで同顧客名を登録させない
+            models.UniqueConstraint(fields=['customer_name', 'user'], name='unique_customer'),
+        ]
 
     def __str__(self):
         return self.customer_name
@@ -49,6 +63,7 @@ class Order(models.Model):
     invoice_status = models.BooleanField('請求')
     invoice_number = models.CharField('請求番号', blank=True, null=True, max_length=50)
     invoice_date = models.DateField('請求日', blank=True, null=True)
+    user = models.CharField('ユーザID', max_length=50, blank=False)
 
     def __float__(self):
         return self.volume

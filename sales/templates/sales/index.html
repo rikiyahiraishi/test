@@ -61,7 +61,7 @@
     <div class="col-md-4">
         <div class="card mb-3">
             <div class="card-header text-white bg-info text-center ls-widest font-weight-bold">
-                受注件数
+                年間受注件数
             </div>
             <div class="card-body">
                 <div class="row mt-2">
@@ -89,6 +89,21 @@
                         </h6>
                     </div>
                 </div>
+                <div class="row mt-2">
+                    <div class="col-auto">
+                        <p class="text-end">未請求件数 : </p>
+                    </div>
+                    <div class="col-auto">
+                        <h4 class="text-danger">
+                            {{ uninvoice_cnt }}
+                        </h4>
+                        <h6 class="card-title text-center text-secondary">
+                            {% for key, value in uninvoice_dict.items %}
+                            <p style="line-height: 8px;">{{ key }} : {{ value|intcomma }}</p>
+                            {% endfor %}
+                        </h6>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="card">
@@ -109,8 +124,9 @@
     {% for month in month_list %}
     '{{ month }}',
     {% endfor %}
-    ];
+    ];                                                                                                          
 
+    {% if request.user.id == 1 %}
     const lineChartData = {
         labels: lineChartLabels,
         datasets: [
@@ -119,7 +135,7 @@
             backgroundColor: 'rgb(81,228,193)',
             borderColor: 'rgb(81,228,193)',
             data: [
-        {% for sale in sales_list.0 %}
+        {% for sale in sales_list.a %}
         {{ sale }},
         {% endfor %}
         ],
@@ -130,7 +146,7 @@
             backgroundColor: 'rgb(81,228,84)',
             borderColor: 'rgb(81,228,84)',
             data: [
-        {% for sale in sales_list.1 %}
+        {% for sale in sales_list.g %}
         {{ sale }},
         {% endfor %}
         ],
@@ -141,13 +157,43 @@
             backgroundColor: 'rgb(51,191,84)',
             borderColor: 'rgb(51,191,84)',
             data: [
-        {% for sale in sales_list.2 %}
+        {% for sale in sales_list.rt %}
         {{ sale }},
         {% endfor %}
         ],
         },
     ]
     };
+
+    {% elif request.user.id == 2 %}
+    const lineChartData = {
+        labels: lineChartLabels,
+        datasets: [
+            {
+            label: 'test22',
+            backgroundColor: 'rgb(81,228,193)',
+            borderColor: 'rgb(81,228,193)',
+            data: [
+        {% for sale in sales_list.test22 %}
+        {{ sale }},
+        {% endfor %}
+        ],
+        },
+
+        {
+            label: 'a',
+            backgroundColor: 'rgb(81,228,84)',
+            borderColor: 'rgb(81,228,84)',
+            data: [
+        {% for sale in sales_list.a %}
+        {{ sale }},
+        {% endfor %}
+        ],
+        },
+    ]
+    };
+
+    {% endif %}
 
     const lineChart = new Chart(lineChartCtx, {
         type: 'line',

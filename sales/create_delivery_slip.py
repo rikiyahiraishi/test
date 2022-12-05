@@ -1,79 +1,91 @@
 from lib2to3.pgen2.pgen import DFAState
-from .models import Products, Customer, Order
+from .models import Customer, Order
 
 import pandas as pd
 import openpyxl
-import sys
-import argparse
 import os
 import re
 import datetime
-
-import xlwings as xw
+import subprocess
+import shutil
 from . import log_out
 
 ##########################################################################
-file_path = "C:/Users/rikiya/Desktop/web_app/config/_format/請求書作成.xlsx"
+file_path = "C:/Users/rikiya/Desktop/web_app/config/_format/納品書_小松.xlsx"
 log_dir = "C:/Users/rikiya/Desktop/web_app/config/_log"
 # 納品書シートのPDF出力
-delivery_pdf_dir = "C:/Users/rikiya/Desktop/"
+delivery_pdf_dir = "C:/Users/rikiya/Desktop"
 ##########################################################################
 
-def nohin_write(df, delivery_number, post_code, address, company_name, today, logging):
+def nohin_write(wb, df, delivery_number, post_code, address, company_name, today, logging):
     try:
         status = True
-
         # 納品書シートをアクティブシートに設定
-        active_sht = xw.sheets["納品書"]
-        active_sht.activate()
+        active_sheet = wb['納品書']
 
         # 宛先会社情報の入力
-        xw.Range("A6").value = "〒 " + post_code
-        xw.Range("A7").value = "    " + address
-        xw.Range("A8").value = company_name
+        active_sheet['A6'] = "〒 " + post_code
+        active_sheet['A7'] = "    " + address
+        active_sheet['A8'] = company_name
         # 宛先会社情報の入力(控え用)
-        xw.Range("A35").value = "〒 " + post_code
-        xw.Range("A36").value = "    " + address
-        xw.Range("A37").value = company_name
+        active_sheet['A33'] = "〒 " + post_code
+        active_sheet['A34'] = "    " + address
+        active_sheet['A35'] = company_name
 
         # 納品番号、納品日の書き込み
-        xw.Range("J6").value = delivery_number
-        xw.Range("J7").value = today
+        active_sheet['J6'] = delivery_number
+        active_sheet['J7'] = today
         # 納品番号、納品日の書き込み(控え用)
-        xw.Range("J35").value = delivery_number
-        xw.Range("J36").value = today
+        active_sheet['J33'] = delivery_number
+        active_sheet['J34'] = today
 
         # 前回のデータ削除
-        xw.Range("A16:G25").clear_contents()
+        for row in active_sheet.iter_rows(min_row=16, min_col=1, max_row=25, max_col=1):
+            for cell in row:
+                cell.value = None
+        for row in active_sheet.iter_rows(min_row=16, min_col=3, max_row=25, max_col=7):
+            for cell in row:
+                cell.value = None
         # 前回のデータ削除(控え用)
-        xw.Range("A45:G54").clear_contents()
+        for row in active_sheet.iter_rows(min_row=43, min_col=1, max_row=52, max_col=1):
+            for cell in row:
+                cell.value = None
+        for row in active_sheet.iter_rows(min_row=43, min_col=3, max_row=52, max_col=7):
+            for cell in row:
+                cell.value = None
 
         # データの成型
         row_list = []
         # [0]:商品名、[1]:数量、[2]:単位、[3]:単価、[4]:金額、[5]:納品日
         for index, row in df.iterrows():
-            new_row = [row[0], "", row[1], row[2], row[3], row[4], row[5]]
+            new_row = [row[0], row[1], row[2], row[3], row[4], row[5]]
             row_list.append(new_row)
         # 「以下余白」の追加(10件未満の場合)
         if int(len(row_list)) < 10:
             row_list.append(["以下余白", "" , "" , "" , "", "", ""])
 
         # 納品商品データの書き込み
-        xw.Range("A16").value = row_list
+        col_list = ['A', 'C', 'D', 'E', 'F', 'G']
+        for i in range(len(row_list)):
+            row = row_list[i]
+            for t in range(len(col_list)):
+                STR = '{0}{1}'.format(col_list[t], 16+i)
+                active_sheet[STR] = row[t]
+                
         # 納品商品データの書き込み(控え用)
-        xw.Range("A45").value = row_list
+        for i in range(len(row_list)):
+            row = row_list[i]
+            for t in range(len(col_list)):
+                STR = '{0}{1}'.format(col_list[t], 43+i)
+                active_sheet[STR] = row[t]
 
     except Exception as err:
         logging.exception(err)
 
-        # Excelファイルの終了
-        app = xw.apps.active
-        app.quit()
-
         logging.info("Process Failed ---make_delivery_slip---")
         status = False
 
-    return active_sht, status
+    return active_sheet, status
 
 
 
@@ -98,21 +110,21 @@ def list_to_df(pk_list):
 
 
 
-def create_delivery_slip(pk_list, delivery_number):
+def create_delivery_slip(pk_list, delivery_number, login_user):
     try:
         # ログモジュールの初期化
         logging = log_out.setup_logging(log_dir)
         logging.info("Process Start ---make_deliveryslip---")
 
-        # xlwingsでのエクセルファイルの読み込み
-        input_book = xw.Book(file_path)
+        # openpyxlでのエクセルファイルの読み込み
+        wb = openpyxl.load_workbook(file_path)
 
         # シートの読み込み
-        sheet_obj = xw.sheets
+        sheet_obj = wb.sheetnames
         # シート名のリスト化
         sheet_list = []
         for i in range(len(sheet_obj)):
-            sheet_list.append(xw.sheets[i].name)
+            sheet_list.append(sheet_obj[i])
 
         # 納品書シートの存在確認
         if not "納品書" in sheet_list:
@@ -125,7 +137,7 @@ def create_delivery_slip(pk_list, delivery_number):
 
         # pk_listから顧客情報を取得
         customer_name = Order.objects.get(pk=pk_list[0]).customer_name
-        customer_info = Customer.objects.get(customer_name=customer_name)
+        customer_info = Customer.objects.get(customer_name=customer_name, user=login_user)
         address = customer_info.address
         post_code = customer_info.post_code
 
@@ -133,7 +145,7 @@ def create_delivery_slip(pk_list, delivery_number):
         if not delivery_number:
             delivery_number = "-"
         today = datetime.date.today()
-        active_sht, status = nohin_write(df, delivery_number, post_code, address, customer_name, today, logging)
+        active_sheet, status = nohin_write(wb, df, delivery_number, post_code, address, customer_name, today, logging)
 
         # 書き込みに失敗したら処理を終了する
         if not status:
@@ -142,7 +154,7 @@ def create_delivery_slip(pk_list, delivery_number):
 
         # PDFファイルパスの生成
         # ディレクトリが存在しない場合は、ディレクトリを作成
-        delivery_dir = "{0}/{1}/{2}/{3}/{4}/".format(delivery_pdf_dir, "web_app", customer_name, "納品書", today.year)
+        delivery_dir = "{0}/{1}/{2}/{3}/{4}/{5}/{6}/".format(delivery_pdf_dir, "web_app", "UserID", login_user, customer_name, "納品書", today.year)
         if not os.path.exists(delivery_dir):
             os.makedirs(delivery_dir, exist_ok=False)
 
@@ -173,23 +185,20 @@ def create_delivery_slip(pk_list, delivery_number):
             pre_file = "{0}_納品書_{1}".format("".join(date), customer_name)
             new_file_name = "{0}_{1}.pdf".format(pre_file, new_num)
 
+        # bookの保存
+        wb.save(file_path)
+
         #ファイル名の生成
         new_file_path = os.path.join(delivery_dir, new_file_name)
         # PDFファイルの出力
-        active_sht.to_pdf(path=new_file_path, show=False)
+        subprocess.run(['C:\Program Files\LibreOffice\program\soffice.com', '--headless', '--convert-to', 'pdf', '--outdir', r'{0}'.format(delivery_pdf_dir), r'{0}'.format(file_path)])
+        # PDFファイルの移動
+        pdf_path = os.path.join(delivery_pdf_dir, '{0}.pdf'.format(os.path.splitext(os.path.basename(file_path))[0]))
+        shutil.move(pdf_path, new_file_path)
 
-        # bookの保存
-        input_book.save()
-        app = xw.apps.active
-        app.quit()
-    
     except Exception as err:
         logging.exception(err)
         logging.info("Process End ---make_deliveryslip---")
-
-        # Excelファイルの終了
-        app = xw.apps.active
-        app.quit()
 
         # 正常に終了しなかったことを通知
         message = '納品書の作成処理に失敗しました。ログ内容を管理者に連絡してください。'

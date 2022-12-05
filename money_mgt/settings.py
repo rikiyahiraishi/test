@@ -156,8 +156,11 @@ MESSAGE_TAGS = {
 }
 MESSAGE_LEVEL = message_constants.DEBUG
 
-#ALLOWED_HOSTS = ['127.0.0.1', '192.168.3.7']
+ALLOWED_HOSTS = ['127.0.0.1', '192.168.3.7']
 
+# ログイン機能の追加
+LOGIN_URL = 'sales:login'
+LOGIN_REDIRECT_URL = 'sales:index'
 
 # herokuのための追記
 import dj_database_url

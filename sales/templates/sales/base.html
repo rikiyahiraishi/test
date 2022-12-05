@@ -73,6 +73,15 @@
                         </ul>
                     </li>
                 </ul>
+                {% if request.user.is_authenticated %}
+                    <div>
+                        ユーザー：{{ request.user }}&emsp;&emsp;<a href="{% url 'sales:logout' %}">ログアウト</a>
+                    </div>
+                {% else %}
+                    <div>
+                        <a href="{% url 'sales:login' %}">ログイン</a>
+                    </div>
+                {% endif%}
                 <!-- Left links -->
             </div>
             <!-- Collapsible wrapper -->
